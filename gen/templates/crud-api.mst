@@ -1,0 +1,117 @@
+const validate = require('validate.js')
+const _ = require('lodash')
+const wrap = require('../helpers').wrap
+
+module.exports = async function (app, db) {
+
+  // ================
+  // VALIDATION RULES
+  // ================
+
+  const constraints = {<%#fields%>
+    <%key%>: {
+    },<%/fields%>
+  }
+
+  // =============
+  // LIST OF ITEMS
+  // =============
+
+  app.get('<%{apiPath}%>', wrap(async (req, res) => {
+    let query = req
+      .db('<%tableName%>')
+      .select('*')
+      .limit(20)
+
+    if (req.query.search) {
+      const search = req.query.search.toString()
+      query = query
+        .where('<%whereLike%>', 'like', `%${search}%`)<%#orWhereLike%>
+        .orWhere('<%.%>', 'like', `%${search}%`)<%/orWhereLike%>
+    }
+
+    if (req.query.page) {
+      const page = Math.round(Number(req.query.page))
+      query = query.offset(page >= 1 ? (page - 1) * 20 : 0)
+    }
+
+    const <%tableName%> = await query
+
+    res
+      .status(200)
+      .json({ <%tableName%> })
+  }))
+
+  // ===============
+  // INSERT NEW ITEM
+  // ===============
+
+  app.post('<%{apiPath}%>', wrap(async (req, res) => {<%#fields%>
+    const <%key%> = req.body.<%key%>.toString()<%/fields%>
+
+    await validate.async({ <%#fields%><%key%>, <%/fields%>}, constraints)
+
+    await req
+      .db('<%tableName%>')
+      .insert({ <%#fields%><%key%>, <%/fields%>})
+
+    res
+      .status(200)
+      .json({ success: true })
+  }))
+
+  // ======================
+  // GET ITEM BY IDENTIFIER
+  // ======================
+
+  app.get('<%{apiPath}%>/:identifier', wrap(async (req, res) => {
+    const identifier = req.params.identifier.toString()
+
+    const <%tableName%> = await req
+      .db('<%tableName%>')
+      .select('*')
+      .where('<%primary%>', identifier)
+      .first()
+
+    res
+      .status(200)
+      .json({ <%tableName%> })
+  }))
+
+  // =========================
+  // UPDATE ITEM BY IDENTIFIER
+  // =========================
+
+  app.patch('<%{apiPath}%>/:identifier', wrap(async (req, res) => {
+    const identifier = req.params.identifier.toString()<%#fields%>
+    const <%key%> = req.body.<%key%>.toString()<%/fields%>
+
+    await validate.async({ <%#fields%><%key%>, <%/fields%>}, _.pick(constraints, [<%#fields%>'<%key%>', <%/fields%>]))
+
+    await req
+      .db('<%tableName%>')
+      .update({ <%#fields%><%key%>, <%/fields%>})
+      .where('<%primary%>', identifier)
+
+    res
+      .status(200)
+      .json({ success: true })
+  }))
+
+  // ===========================
+  // REMOVE ITEMS BY IDENTIFIERS
+  // ===========================
+
+  app.delete('<%{apiPath}%>', wrap(async (req, res) => {
+    const identifiers = req.query.identifiers.map(r => r.toString())
+
+    await req
+      .db('<%tableName%>')
+      .delete()
+      .whereIn('<%primary%>', identifiers)
+
+    res
+      .status(200)
+      .json({ success: true })
+  }))
+}

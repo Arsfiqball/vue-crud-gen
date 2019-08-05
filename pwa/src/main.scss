@@ -1,0 +1,50 @@
+@import "~bulma/sass/utilities/_all.sass";
+
+@import "~bulma/bulma";
+
+$fa-font-path: '~@fortawesome/fontawesome-free/webfonts';
+@import "~@fortawesome/fontawesome-free/scss/fontawesome";
+@import "~@fortawesome/fontawesome-free/scss/solid";
+
+.modal {
+  .modal-content {
+    max-height: 100vh;
+  }
+}
+
+.fab {
+  position: fixed;
+  right: 2rem;
+  bottom: 2rem;
+
+  .button {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+  }
+}
+
+.data-block {
+  overflow-x: auto;
+  min-height: calc(100vh - 52px);
+}
+
+.message-block {
+  padding: .5rem;
+}
+
+@media screen and (max-width: 768px) {
+  .fab {
+    right: 1.4rem;
+    bottom: 1.4rem;
+
+    .button {
+      width: 50px;
+      height: 50px;
+    }
+  }
+
+  .data-block {
+    min-height: calc(100vh - 105px);
+  }
+}

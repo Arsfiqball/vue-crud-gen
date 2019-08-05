@@ -1,0 +1,244 @@
+<template>
+  <div @keyup.esc="handleClose" tabindex="0">
+    <div class="control-block">
+      <table-control
+        :is-loading="isLoading"
+        :current-page="currentPage"
+        @create="handleCreate"
+        @sync="load"
+        @search="search"
+        @next-page="nextPage"
+        @prev-page="prevPage"
+      />
+    </div>
+    <div v-if="query" class="message-block">
+      Showing data filtered by "{{ query }}"
+    </div>
+    <div v-if="!items.length" class="message-block">
+      No more items
+    </div>
+    <div class="data-block">
+      <table-data
+        v-show="items.length"
+        primary="<%primary%>"
+        :schema="schema"
+        :items="items"
+        @show="handleShow"
+        @edit="handleEdit"
+        @remove="handleRemove"
+      />
+    </div>
+    <card-modal
+      :title="modal === 'edit' ? 'Update <%nameLower%>' : 'Add new <%nameLower%>'"
+      :actions="[modal === 'edit' ? 'Update' : 'Create', 'Cancel']"
+      :is-active="modal === 'create' || modal === 'edit'"
+      @close="handleClose"
+      @cancel="handleClose"
+      @update="update"
+      @create="create"
+    ><%#fields%>
+      <form-field
+        label="<%label%>"
+        :error="errors.<%key%>"
+      >
+        <input
+          class="input is-shadowless"
+          type="text"
+          placeholder="Type unique <%label%>..."
+          v-model="input.<%key%>"
+        />
+      </form-field><%/fields%>
+    </card-modal>
+    <card-modal
+      title="<%name%> details"
+      :actions="['Close']"
+      :is-active="modal === 'show'"
+      @close="handleClose"
+    >
+      <detail-data
+        v-if="showData"
+        :schema="detailSchema"
+        :item="showData"
+      />
+    </card-modal>
+    <card-modal
+      title="<%name%> details"
+      :actions="['Yes', 'No']"
+      :is-active="modal === 'remove'"
+      @close="handleClose"
+      @no="handleClose"
+      @yes="remove"
+    >
+      Are you sure want to remove item with identifiers: {{ removeIdentifiers.join(', ') }}
+    </card-modal>
+  </div>
+</template>
+
+<script>
+import api from '@/api'
+import { formatDate, handleRequestError } from '@/helpers'
+import { mapState, mapActions } from 'vuex'
+
+import TableControl from '@/components/TableControl.vue'
+import TableData from '@/components/TableData.vue'
+import CardModal from '@/components/CardModal.vue'
+import FormField from '@/components/FormField.vue'
+import DetailData from '@/components/DetailData.vue'
+
+const schema = [<%#fields%>
+  {
+    key: '<%key%>',
+    label: '<%label%>',
+  },<%/fields%>
+]
+
+const detailSchema = Object.assign(schema).concat([
+  // fields which are only shown in detail data
+])
+
+export default {
+  name: '<%nameLower%>',
+
+  components: {
+    TableControl,
+    TableData,
+    CardModal,
+    FormField,
+    DetailData
+  },
+
+  data: () => ({
+    schema,
+    detailSchema,
+    modal: null,
+    showData: null,
+    removeIdentifiers: [],
+    updateIdentifier: null,
+    items: [],
+    isLoading: false,
+    currentPage: 1,
+    query: '',
+    input: {<%#fields%>
+      <%key%>: '',<%/fields%>
+    }
+  }),
+
+  computed: {
+    errors () {
+      return this.$store.state.validationErrors
+    }
+  },
+
+  mounted () {
+    this.load()
+  },
+
+  methods: {
+    handleClose () {
+      this.modal = null
+      this.input.identifier = ''<%#fields%>
+      this.input.<%key%> = ''<%/fields%>
+      this.showData = null
+      this.removeIdentifiers = []
+      this.updateIdentifier = null
+      this.$store.dispatch('resetValidationErrors')
+    },
+
+    handleCreate () {
+      this.modal = 'create'
+    },
+
+    handleEdit (identifier) {
+      this.isLoading = true
+
+      this
+        .read(identifier)
+        .then(item => {
+          this.modal = 'edit'
+          this.updateIdentifier = item.<%primary%><%#fields%>
+          this.input.<%key%> = item.<%key%><%/fields%>
+        })
+        .catch(console.error)
+        .finally(() => (this.isLoading = false))
+    },
+
+    handleShow (identifier) {
+      this.isLoading = true
+
+      this
+        .read(identifier)
+        .then(item => {
+          this.modal = 'show'
+          this.showData = item
+        })
+        .catch(console.error)
+        .finally(() => (this.isLoading = false))
+    },
+
+    handleRemove (identifiers) {
+      this.modal = 'remove'
+      this.removeIdentifiers = identifiers
+    },
+
+    load () {
+      this.isLoading = true
+
+      const search = this.query || undefined
+      const page = this.currentPage > 1 ? this.currentPage : undefined
+
+      return api
+        .get('<%{apiPath}%>', { params: { search, page } })
+        .then(res => (this.items = res.data.<%tableName%>))
+        .catch(handleRequestError)
+        .finally(() => (this.isLoading = false))
+    },
+
+    search (search) {
+      this.query = search
+      this.currentPage = 1
+      this.load()
+    },
+
+    nextPage () {
+      this.currentPage += 1
+      this.load()
+    },
+
+    prevPage () {
+      if (this.currentPage > 1) this.currentPage -= 1
+      this.load()
+    },
+
+    create () {
+      return api
+        .post('<%{apiPath}%>', this.input)
+        .then(res => this.handleClose())
+        .catch(handleRequestError)
+        .finally(() => this.load())
+    },
+
+    read (identifier) {
+      return api
+        .get(`<%{apiPath}%>/${identifier}`)
+        .then(res => Promise.resolve(res.data.<%tableName%>))
+        .catch(handleRequestError)
+    },
+
+    update () {
+      return api
+        .patch(`<%{apiPath}%>/${this.updateIdentifier}`, this.input)
+        .then(res => this.handleClose())
+        .catch(handleRequestError)
+        .finally(() => this.load())
+    },
+
+    remove () {
+      return api
+        .delete(`<%{apiPath}%>`, { params: { identifiers: this.removeIdentifiers } })
+        .then(res => this.handleClose())
+        .catch(handleRequestError)
+        .finally(() => this.load())
+    }
+  }
+}
+</script>
