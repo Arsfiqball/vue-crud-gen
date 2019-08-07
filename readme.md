@@ -10,7 +10,8 @@
 Clone this repo using Degit and then install each module dependencies.
 
 ```sh
-degit arsfiqball/vue-crud-gen
+degit arsfiqball/vue-crud-gen vcgexample
+cd vcgexample
 cd gen
 npm install
 cd ../api
